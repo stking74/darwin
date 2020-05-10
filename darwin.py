@@ -1,31 +1,50 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def evolve(input, score_function, mode='max', perturbation_modifier=1, noise_modifier=1, iterations=30, n_offspring=50):
+def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modifier=1, iterations=30, n_offspring=50, cutoff=None):
     itercount = 0
     score_history = []
+    winner_history = []
     perturbation_factor = 0.01 * perturbation_modifier
     noise_factor = 0.01 * noise_modifier
-    noise_factor = int(noise_factor * len(input))
+    noise_factor = int(noise_factor * len(arr))
+    if noise_factor < 1: noise_factor = 1
     while itercount < iterations:
-        offspring = [np.array(input) for i in range(n_offspring)]
+        offspring = [np.array(arr) for i in range(n_offspring)]
         for i, o in enumerate(offspring):
             random_indices = [np.random.randint(0, len(o)) for i in range(noise_factor)]
             for j in random_indices:
-                v = o[j]
-                o[j] = np.random.normal(v, perturbation_factor)
-            offspring[i] = o
+                o[j] = np.random.normal(o[j], perturbation_factor)
         scores = [score_function(o) for o in offspring]
         if mode == 'max': high_score = max(scores)
         elif mode == 'min': high_score = min(scores)
-        elif mode == 'approx':
+        elif mode == 'approx': 
             scores = [abs(s) for s in scores]
             high_score = min(scores)
         winner = offspring[scores.index(high_score)]
-        input = winner
+        arr = winner
+        winner_history.append(winner)
         score_history.append(high_score)
         itercount += 1
+        print('Iteration:', itercount+1)
+        print('Score:', high_score)
+        if cutoff is not None:
+            if mode == 'max': 
+                if high_score > cutoff: 
+                    break
+            elif mode == 'min' or mode == 'approx':
+                if high_score < cutoff: 
+                    break
     return winner, score_history
+
+def rmse(measured, estimated):
+    import numpy as np
+    measured = np.array(measured)
+    estimated = np.array(estimated)
+    error = measured - estimated
+    error = np.square(error)
+    mse = np.mean(error)
+    return np.sqrt(mse)
 
 def _gaussian_(x, a, x0, sigma):
     '''
@@ -38,12 +57,14 @@ def _gaussian_(x, a, x0, sigma):
     '''
     return a*np.exp(-(x-x0)**2/(2*sigma**2))
 
-def score(input):
-    standard = np.linspace(-1,1,len(input))
+def score(arr):
+    standard = np.linspace(-1,1,len(arr))
     standard = np.array([_gaussian_(x, 1, 0, 0.2) for x in standard])
-    diff = sum(standard - input)
-    return diff
+    return rmse(standard, arr)
 
-input = np.zeros((200))
-optimized, scores = evolve(input, score, mode='approx', iterations=100000, n_offspring=2000)
-print(scores)
+arr = np.zeros((2000))
+optimized, scores = evolve(arr, score, mode='approx', iterations=100000, n_offspring=1000, cutoff=1E-1, noise_modifier=10)
+plt.figure()
+plt.plot(optimized)
+plt.figure()
+plt.plot(scores)
