@@ -4,13 +4,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 
 def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modifier=1, iterations=30, n_offspring=50, cutoff=None):
-    
-    def score_offspring(o):
-        random_indices = [np.random.randint(0, len(o)) for i in range(noise_factor)]
-        for j in random_indices:
-            o[j] = np.random.normal(o[j], perturbation_factor)
-        return score_function(o)
-    
+
     itercount = 0
     score_history = []
     winner_history = []
@@ -18,15 +12,19 @@ def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modif
     noise_factor = 0.01 * noise_modifier
     noise_factor = int(noise_factor * len(arr))
     if noise_factor < 1: noise_factor = 1
-    
+
     pool = Pool(4)
-    
+
     while itercount < iterations:
         offspring = [np.array(arr) for i in range(n_offspring)]
-        scores = pool.map(score_offspring, offspring)
+        for o in offspring:
+            random_indices = [np.random.randint(0, len(o)) for i in range(noise_factor)]
+            for j in random_indices:
+                o[j] = np.random.normal(o[j], perturbation_factor)
+        scores = pool.map(score, offspring)
         if mode == 'max': high_score = max(scores)
         elif mode == 'min': high_score = min(scores)
-        elif mode == 'approx': 
+        elif mode == 'approx':
             scores = [abs(s) for s in scores]
             high_score = min(scores)
         winner = offspring[scores.index(high_score)]
@@ -34,16 +32,17 @@ def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modif
         winner_history.append(winner)
         score_history.append(high_score)
         itercount += 1
-        print('Iteration:', itercount+1)
+        print('Iteration:', itercount)
         print('Score:', high_score)
         if cutoff is not None:
-            if mode == 'max': 
-                if high_score > cutoff: 
+            if mode == 'max':
+                if high_score > cutoff:
                     break
             elif mode == 'min' or mode == 'approx':
-                if high_score < cutoff: 
+                if high_score < cutoff:
                     break
     return winner, score_history
+
 
 def rmse(measured, estimated):
     import numpy as np
@@ -70,8 +69,8 @@ def score(arr):
     standard = np.array([_gaussian_(x, 1, 0, 0.2) for x in standard])
     return rmse(standard, arr)
 
-arr = np.zeros((2000))
-optimized, scores = evolve(arr, score, mode='approx', iterations=1000000, n_offspring=10000, cutoff=1E-1, noise_modifier=10)
+arr = np.zeros((200))
+optimized, scores = evolve(arr, score, mode='approx', iterations=1000, n_offspring=10000, cutoff=1E-1, noise_modifier=10)
 plt.figure()
 plt.plot(optimized)
 plt.figure()
