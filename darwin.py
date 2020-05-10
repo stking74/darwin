@@ -1,7 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from multiprocessing import Pool
+
 def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modifier=1, iterations=30, n_offspring=50, cutoff=None):
+    
+    def score_offspring(o):
+        random_indices = [np.random.randint(0, len(o)) for i in range(noise_factor)]
+        for j in random_indices:
+            o[j] = np.random.normal(o[j], perturbation_factor)
+        return score_function(o)
+    
     itercount = 0
     score_history = []
     winner_history = []
@@ -9,13 +18,12 @@ def evolve(arr, score_function, mode='max', perturbation_modifier=1, noise_modif
     noise_factor = 0.01 * noise_modifier
     noise_factor = int(noise_factor * len(arr))
     if noise_factor < 1: noise_factor = 1
+    
+    pool = Pool(4)
+    
     while itercount < iterations:
         offspring = [np.array(arr) for i in range(n_offspring)]
-        for i, o in enumerate(offspring):
-            random_indices = [np.random.randint(0, len(o)) for i in range(noise_factor)]
-            for j in random_indices:
-                o[j] = np.random.normal(o[j], perturbation_factor)
-        scores = [score_function(o) for o in offspring]
+        scores = pool.map(score_offspring, offspring)
         if mode == 'max': high_score = max(scores)
         elif mode == 'min': high_score = min(scores)
         elif mode == 'approx': 
@@ -63,7 +71,7 @@ def score(arr):
     return rmse(standard, arr)
 
 arr = np.zeros((2000))
-optimized, scores = evolve(arr, score, mode='approx', iterations=100000, n_offspring=1000, cutoff=1E-1, noise_modifier=10)
+optimized, scores = evolve(arr, score, mode='approx', iterations=1000000, n_offspring=10000, cutoff=1E-1, noise_modifier=10)
 plt.figure()
 plt.plot(optimized)
 plt.figure()
